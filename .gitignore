@@ -2,6 +2,7 @@
 *.m
 
 *Old/
+*.ipynb_checkpoints/
 
 # Created by https://www.gitignore.io/api/git,tex,latex,python
 # Edit at https://www.gitignore.io/?templates=git,tex,latex,python

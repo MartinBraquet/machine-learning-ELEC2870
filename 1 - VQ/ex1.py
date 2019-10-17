@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import scipy.io 
-from show_quantization import *
+from show_quantization import show_quantization
 
 #plt.clf()
 
@@ -67,15 +67,15 @@ def competitive_learning(x, Q, init):
     print(maxs)
     print(mins)
     
-    cent = np.zeros((Q,D))
+    X_c = np.zeros((Q,D))
     
     if init == 1:
         for i in range(D):
-            cent[:,i] = np.random.uniform(low=mins[i], high=maxs[i], size=(Q,))
+            X_c[:,i] = np.random.uniform(low=mins[i], high=maxs[i], size=(Q,))
     else:
         pass
     
-    print(cent)
+    print(X_c)
     
     error = 0
     
@@ -85,36 +85,44 @@ def competitive_learning(x, Q, init):
         np.random.shuffle(x)
         
         for i in range(P):
-            (index, dist) = find_closest(cent, x[i,:], Q, D)
-            # show_quantization(np.array([x[i,:],[0,0]]), cent)
-            # print(cent[index,:])
+            distances = np.sum((X_c - x[i,:])**2, 1)
+            index = np.argmin(distances)
+            # show_quantization(np.array([x[i,:],[0,0]]), X_c)
+            # print(X_c[index,:])
             # print(x[i,:])
-            cent[index,:] += a * (x[i,:] - cent[index,:])
+            X_c[index,:] += a * (x[i,:] - X_c[index,:])
             
         old_error = error
-        error = 0
-        for i in range(P):
-            (index, dist) = find_closest(cent, x[i,:], Q, D)
-            error += dist
-        error = error / P
             
-        print(error)
-        print(old_error)
+        distances = np.sum((np.repeat(x, Q, axis=0).reshape(P, Q, 2) - X_c)**2, axis=-1)
+        error = np.sum(np.min(distances, axis=-1)) / P
+        
+        #print(error)
+        #print(old_error)
         print(abs(error - old_error) / error)
-        if (abs(error - old_error) / error < 0.000001):
+        if (abs(error - old_error) / error < 0.001):
             break
             
-    return cent
+    return X_c
             
-        
-def find_closest(v, x, Q, D):
+'''
+def find_closest(X_c, x, Q, D):
     dist = np.zeros((Q,))
     for j in range(D):
         # print(v[:,j] - x[j])
-        dist += (v[:,j] - x[j])**2
+        dist += (X_c[:,j] - x[j])**2
+    distances = np.sum((np.repeat(X, n_X_croids, axis=0).reshape(n_points, n_X_croids, 2) - X_c)**2, axis=-1)
+    closest = np.argmin(distances, axis=-1)
     index = np.argmin(dist)
     return (index, dist[index])
-        
-centroids = competitive_learning(X1, 4, 1)
+'''
 
-show_quantization(X1, centroids)
+X_c = competitive_learning(X1, 4, 1)
+
+show_quantization(X1, X_c, use_seaborn=True)
+
+print('test')
+
+show_quantization(X1, X_c)
+
+plt.show()
