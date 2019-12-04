@@ -96,7 +96,7 @@ def rmse(predictions, targets):
     return np.sqrt(((predictions - targets) ** 2).mean())
 
 # Data building
-if 'Xpd' in locals():
+if 'Xpd' not in locals():
     print('Loading...')
     Xpd, X_full, Y = load_data()
     X_full = preprocessing.scale(X_full) # Smaller error with scale instead of normalize
