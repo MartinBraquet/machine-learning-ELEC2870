@@ -189,19 +189,22 @@ def project_linear_regression(X, Y):
 def project_KNN(X, Y, n):
     print('KNN...')
     
-    def KNN(X,Y,n,method_name):
+    def KNN(X, Y, n, method_name, compute):
         neighbors = np.arange(1, n + 1, 1)
-        error_knn = np.zeros(n)
-        for i in range(0, n):
-            model = KNeighborsRegressor(n_neighbors=neighbors[i], metric='euclidean')
-            Y_pred = model.fit(X, Y).predict(X)
-            RMSE = rmse(Y, Y_pred)
-            error_knn[i] = math.sqrt(np.mean(bootstrap_point632_score(model, X, Y, n_splits=100)))
-            print(method_name, 'RMSE ( k =', neighbors[i], ') :', RMSE)
-            print(method_name, 'bootstrap 632 error ( k =', neighbors[i], ') :', error_knn[i])
-    
-        fig = plt.figure(figsize=(6, 4))
-    
+        if compute:
+            error_knn = np.zeros(n)
+            for i in range(0, n):
+                model = KNeighborsRegressor(n_neighbors=neighbors[i], metric='euclidean')
+                Y_pred = model.fit(X, Y).predict(X)
+                RMSE = rmse(Y, Y_pred)
+                error_knn[i] = math.sqrt(np.mean(bootstrap_point632_score(model, X, Y, n_splits=100)))
+                print(method_name, 'RMSE ( k =', neighbors[i], ') :', RMSE)
+                print(method_name, 'bootstrap 632 error ( k =', neighbors[i], ') :', error_knn[i])
+        else:
+            if method_name == 'KNN':
+                error_knn = np.array([44.63007435, 42.91722747, 42.42618258, 42.39780082, 42.54022997, 42.59120806, 42.71413344, 42.92639601, 42.86850688, 43.09182013, 43.36117329, 43.41121083, 43.65708279, 43.69896532, 43.86472366, 43.78765416, 44.00862374, 44.30227774, 44.29008714, 44.46076153, 44.53703636, 44.63881345, 44.69277326, 44.75460404, 44.81400926, 44.9321936, 45.14968511, 44.91520762, 45.18015732, 45.08772065, 45.30150145, 45.21632641, 45.3992413, 45.54305763, 45.44595713, 45.67029185, 45.71647618, 45.55042106, 45.79218583, 45.80604866, 45.89558866, 45.95351281, 45.95303281, 46.01579606, 46.04745272, 46.09775259, 46.17958316, 46.28358257, 46.26775877, 46.40855521])
+            else:
+                error_knn = np.array([52.73763501, 50.26260653, 49.43199863, 49.02281048, 48.68253806, 48.85401044, 48.67349653, 48.72226453, 48.57146228, 48.50207035, 48.56443761, 48.51289697, 48.53336497, 48.50314503, 48.47753564, 48.47326746, 48.57352092, 48.5564091, 48.4619637, 48.53501412, 48.50419066, 48.56703669, 48.5808846, 48.60146488, 48.61727791, 48.61611907, 48.75758009, 48.71311524, 48.77881461, 48.77234174, 48.8188231, 48.78412026, 48.7703691, 48.80950418, 48.83629899, 48.88289063, 48.93794985, 48.96546474, 49.01236155, 49.07860634, 48.99108467, 49.00323927, 48.94704306, 48.8915739, 49.09580907, 49.06468691, 49.03424426, 49.22457642, 49.13059562, 49.23870995])
         plt.plot(neighbors, error_knn, 'b')
         plt.xlabel('neighbours')
         plt.ylabel('Error' + method_name)
@@ -211,13 +214,13 @@ def project_KNN(X, Y, n):
         return error_knn
         
     # KNN
-    error_knn = KNN(X, Y, n, method_name='KNN')
+    error_knn = KNN(X, Y, n, method_name='KNN', compute=False)
     
     # KNN with PCA
     pca = PCA(n_components=4)
     X_PCA = pca.fit_transform(X)
     print(pca.explained_variance_ratio_)
-    error_knn_PCA = KNN(X_PCA, Y, n, method_name='KNN PCA')
+    error_knn_PCA = KNN(X_PCA, Y, n, method_name='KNN PCA', compute=False)
 
     # plot_file = "./knn_mse.eps"
     # fig.savefig(plot_file, facecolor='w', edgecolor='w', format='eps', bbox_inches='tight', pad_inches=0)
@@ -229,6 +232,8 @@ def project_lasso(X, Y, n):
     print('Lasso...')
     
     alpha = np.logspace(-4.0, 4.0, num=n)
+    
+    '''
     error_lasso = np.zeros(n)
     for i in range(0, n):
         model = linear_model.Lasso(alpha=alpha[i])
@@ -237,8 +242,9 @@ def project_lasso(X, Y, n):
         error_lasso[i] = math.sqrt(np.mean(bootstrap_point632_score(model, X, Y, n_splits=100)))
         print('Lasso RMSE ( ', i, ') :', RMSE)
         print('Lasso bootstrap 632 error ( ', i, ') :', error_lasso[i])
-
-    fig = plt.figure(figsize=(6, 4))
+    '''
+    
+    error_lasso = np.array([106.2375631, 106.16187842, 106.13303232, 106.26647534, 106.05651335, 106.20582387, 106.2186026, 106.08258511, 106.19265945, 106.29189452, 106.19592589, 106.1879064, 106.27420472, 106.024182, 106.21584605, 106.09416867, 106.07558031, 106.02752251, 106.09461169, 105.92143377, 105.82545833, 105.84943091, 105.60666613, 105.17078646, 104.7853639, 104.39823394, 103.74839552, 102.7847098, 102.004051, 100.31135177, 98.92064139, 96.73184041 , 93.78242505 , 90.13574035 , 85.84676636 , 81.98082039 , 81.43493206, 81.2762649, 81.41777602, 81.25663058, 81.36819753, 81.10169265, 81.36737431, 81.33121319, 81.51729483, 81.14111805, 81.43614077, 81.29413601, 81.21898883, 81.1998088])
 
     plt.plot(alpha, error_lasso, 'b')
     plt.xlabel('alpha')
@@ -290,7 +296,7 @@ error_lin_reg = project_linear_regression(X, Y.values)
 
 print(error_lin_reg)
 
-n = 1
+n = 50
 
 error_knn, error_knn_PCA = project_KNN(X, Y.values, n)
 
