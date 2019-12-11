@@ -186,7 +186,7 @@ def project_linear_regression(X, Y):
 
 
 # K-nearest neighbours
-def project_KNN(X, Y):
+def project_KNN(X, Y, n):
     print('KNN...')
     
     def KNN(X,Y,n,method_name):
@@ -196,7 +196,7 @@ def project_KNN(X, Y):
             model = KNeighborsRegressor(n_neighbors=neighbors[i], metric='euclidean')
             Y_pred = model.fit(X, Y).predict(X)
             RMSE = rmse(Y, Y_pred)
-            error_knn[i] = math.sqrt(np.mean(bootstrap_point632_score(model, X, Y, n_splits=50)))
+            error_knn[i] = math.sqrt(np.mean(bootstrap_point632_score(model, X, Y, n_splits=100)))
             print(method_name, 'RMSE ( k =', neighbors[i], ') :', RMSE)
             print(method_name, 'bootstrap 632 error ( k =', neighbors[i], ') :', error_knn[i])
     
@@ -206,18 +206,18 @@ def project_KNN(X, Y):
         plt.xlabel('neighbours')
         plt.ylabel('Error' + method_name)
     
-        plt.show()
+        plt.show(block=False)
         
         return error_knn
         
     # KNN
-    error_knn = KNN(X, Y, n=50, method_name='KNN')
+    error_knn = KNN(X, Y, n, method_name='KNN')
     
     # KNN with PCA
     pca = PCA(n_components=4)
     X_PCA = pca.fit_transform(X)
     print(pca.explained_variance_ratio_)
-    error_knn_PCA = KNN(X_PCA, Y, n=50, method_name='KNN PCA')
+    error_knn_PCA = KNN(X_PCA, Y, n, method_name='KNN PCA')
 
     # plot_file = "./knn_mse.eps"
     # fig.savefig(plot_file, facecolor='w', edgecolor='w', format='eps', bbox_inches='tight', pad_inches=0)
@@ -225,15 +225,16 @@ def project_KNN(X, Y):
     return error_knn, error_knn_PCA
 
 # Lasso
-def project_lasso(X, Y):
-    n = 50
+def project_lasso(X, Y, n):
+    print('Lasso...')
+    
     alpha = np.logspace(-4.0, 4.0, num=n)
     error_lasso = np.zeros(n)
     for i in range(0, n):
         model = linear_model.Lasso(alpha=alpha[i])
         Y_pred = model.fit(X, Y).predict(X)
         RMSE = rmse(Y, Y_pred)
-        error_lasso[i] = math.sqrt(np.mean(bootstrap_point632_score(model, X, Y, n_splits=50)))
+        error_lasso[i] = math.sqrt(np.mean(bootstrap_point632_score(model, X, Y, n_splits=100)))
         print('Lasso RMSE ( ', i, ') :', RMSE)
         print('Lasso bootstrap 632 error ( ', i, ') :', error_lasso[i])
 
@@ -243,7 +244,7 @@ def project_lasso(X, Y):
     plt.xlabel('alpha')
     plt.ylabel('Error Lasso')
     plt.xscale('log')
-    plt.show()
+    plt.show(block=False)
     
     return error_lasso
 
@@ -287,6 +288,15 @@ X = X_full.values#[:, mut.values[:-1, -1] > 0.1]
 
 error_lin_reg = project_linear_regression(X, Y.values)
 
-error_knn, error_knn_PCA = project_KNN(X, Y.values)
+print(error_lin_reg)
 
-error_lasso = project_lasso(X, Y.values)
+n = 1
+
+error_knn, error_knn_PCA = project_KNN(X, Y.values, n)
+
+print(error_knn)
+print(error_knn_PCA)
+
+error_lasso = project_lasso(X, Y.values, n)
+
+print(error_lasso)
