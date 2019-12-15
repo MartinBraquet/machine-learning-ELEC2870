@@ -10,7 +10,10 @@ Questions:
 Greed search inside a K fold
 '''
 
-save = 0
+save_mut_corr = False
+save_KNN = False
+save_lasso = False
+compute_KNN = False
 
 import numpy as np
 import math
@@ -18,7 +21,7 @@ import matplotlib
 import tikzplotlib
 import matplotlib.pyplot as plt
 from datetime import datetime
-import seaborn as sns; sns.set()
+import seaborn as sns#; sns.set()
 from sklearn.metrics import mutual_info_score
 import pandas as pd
 from sklearn.linear_model import LinearRegression
@@ -143,7 +146,7 @@ def project_correlation(X, Y, fig=True):
     with sns.axes_style("white"):
         sns.heatmap(np.abs(corr), mask=mask, annot=True, cmap=plt.cm.Reds, vmin=0, vmax=1, linewidths=.5).set_title('Correlation')
 
-    if save:
+    if save_mut_corr:
         tikzplotlib.save("correlation.tex")
     
     plt.show()
@@ -177,7 +180,7 @@ def project_mutual_info(X, Y):
     with sns.axes_style("white"):
         sns.heatmap(np.abs(mut), mask=mask, annot=True, cmap=plt.cm.Reds, vmin=0, vmax=1, linewidths=.5).set_title('Mutual Information')
     
-    if save:
+    if save_mut_corr:
         tikzplotlib.save("MI.tex")
     
     plt.show()
@@ -187,28 +190,47 @@ def project_mutual_info(X, Y):
 
 
 # Linear regression
-def project_linear_regression(X, Y):
+def project_linear_regression(X, Y, method_name):
     print('Linear regression...')
 
     model = LinearRegression()
     
     Y_pred = model.fit(X, Y).predict(X)
-    
     RMSE = rmse(Y, Y_pred)
-    print('Linear regression RMSE :', RMSE)
+    print('Linear regression RMSE', method_name, ' :', RMSE)
 
     error = math.sqrt(np.mean(bootstrap_point632_score(model, X, Y)))
-    print('Linear regression bootstrap 632 error :', error)
+    print('Linear regression bootstrap 632 error', method_name, ' :', error)
 
     return error
 
 
 # K-nearest neighbours
-def project_KNN(X, Y, n, method_name='KNN', compute=True):
+def project_KNN(X_full, X_select, X_PCA, Y, n):
     print('KNN...')
     
+    error_knn_full = compute_error_KNN(X_full, Y, n, 'full')
+    error_knn_select = compute_error_KNN(X_select, Y, n, 'select')
+    error_knn_PCA = compute_error_KNN(X_PCA, Y, n, 'PCA')
+    
     neighbors = np.arange(1, n + 1, 1)
-    if compute:
+    
+    plt.scatter(neighbors, error_knn_full, label='Full features')
+    plt.scatter(neighbors, error_knn_select, label='Selected features')
+    plt.scatter(neighbors, error_knn_PCA, label='PCA features')
+    plt.xlabel('Neighbours')
+    plt.ylabel('Error [ug/m^3]')
+    plt.legend()
+
+    if save_KNN:
+        tikzplotlib.save("KNN.tex")
+    
+    plt.show(block=False)
+    
+def compute_error_KNN(X, Y, n, method_name):
+    
+    neighbors = np.arange(48, n + 1, 1)
+    if compute_KNN:
         error_knn = np.zeros(n)
         for i in range(0, n):
             model = KNeighborsRegressor(n_neighbors=neighbors[i], metric='euclidean')
@@ -216,20 +238,10 @@ def project_KNN(X, Y, n, method_name='KNN', compute=True):
             RMSE = rmse(Y, Y_pred)
             error_knn[i] = math.sqrt(np.mean(bootstrap_point632_score(model, X, Y, n_splits=100)))
             print(method_name, 'RMSE ( k =', neighbors[i], ') :', RMSE)
-            print(method_name, 'bootstrap 632 error ( k =', neighbors[i], ') :', error_knn[i])
+            print(method_name, 'bootstrap 632 error ( k =', neighbors[i], ') :', error_knn[i])   
+        np.save('numpy/error_knn_{}.npy'.format(method_name), error_knn)
     else:
-        if method_name == 'KNN':
-            error_knn = np.array([44.63007435, 42.91722747, 42.42618258, 42.39780082, 42.54022997, 42.59120806, 42.71413344, 42.92639601, 42.86850688, 43.09182013, 43.36117329, 43.41121083, 43.65708279, 43.69896532, 43.86472366, 43.78765416, 44.00862374, 44.30227774, 44.29008714, 44.46076153, 44.53703636, 44.63881345, 44.69277326, 44.75460404, 44.81400926, 44.9321936, 45.14968511, 44.91520762, 45.18015732, 45.08772065, 45.30150145, 45.21632641, 45.3992413, 45.54305763, 45.44595713, 45.67029185, 45.71647618, 45.55042106, 45.79218583, 45.80604866, 45.89558866, 45.95351281, 45.95303281, 46.01579606, 46.04745272, 46.09775259, 46.17958316, 46.28358257, 46.26775877, 46.40855521])
-        else:
-            error_knn = np.array([52.73763501, 50.26260653, 49.43199863, 49.02281048, 48.68253806, 48.85401044, 48.67349653, 48.72226453, 48.57146228, 48.50207035, 48.56443761, 48.51289697, 48.53336497, 48.50314503, 48.47753564, 48.47326746, 48.57352092, 48.5564091, 48.4619637, 48.53501412, 48.50419066, 48.56703669, 48.5808846, 48.60146488, 48.61727791, 48.61611907, 48.75758009, 48.71311524, 48.77881461, 48.77234174, 48.8188231, 48.78412026, 48.7703691, 48.80950418, 48.83629899, 48.88289063, 48.93794985, 48.96546474, 49.01236155, 49.07860634, 48.99108467, 49.00323927, 48.94704306, 48.8915739, 49.09580907, 49.06468691, 49.03424426, 49.22457642, 49.13059562, 49.23870995])
-    plt.plot(neighbors, error_knn, 'b')
-    plt.xlabel('neighbours')
-    plt.ylabel('Error' + method_name)
-
-    if save:
-        tikzplotlib.save("KNN.tex")
-    
-    plt.show(block=False)
+        error_knn = np.load('numpy/error_knn_{}.npy'.format(method_name))
 
     return error_knn
 
@@ -257,7 +269,7 @@ def project_lasso(X, Y, n):
     plt.ylabel('Error Lasso')
     plt.xscale('log')
 
-    if save:
+    if save_lasso:
         tikzplotlib.save("Lasso.tex")
     
     plt.show(block=False)
@@ -312,27 +324,23 @@ Keeps only the relevant features
 ### Features extraction
 
 # PCA
-pca = PCA(n_components=4)
+pca = PCA(n_components=7)
 X_PCA = pca.fit_transform(X_full.values)
 print(pca.explained_variance_ratio_)
 
 
 ### Algorithms test
+'''
+# Linear regression
+error_lin_reg_full = project_linear_regression(X_full.values, Y.values, 'full')
+error_lin_reg_select = project_linear_regression(X_select, Y.values, 'select')
+error_lin_reg_PCA = project_linear_regression(X_PCA, Y.values, 'PCA')
+'''
+# KNN
+n = 50
+project_KNN(X_full.values, X_select, X_PCA, Y.values, n)
 
-X = X_select
+# Lasso
+#error_lasso = project_lasso(X_full, Y.values, n)
+#error_lasso = project_lasso(X_PCA, Y.values, n)
 
-error_lin_reg = project_linear_regression(X, Y.values)
-
-print(error_lin_reg)
-
-n = 5
-
-error_knn = project_KNN(X, Y.values, n)
-error_knn_PCA = project_KNN(X_PCA, Y.values, n)
-
-print(error_knn)
-print(error_knn_PCA)
-
-error_lasso = project_lasso(X, Y.values, n)
-
-print(error_lasso)
