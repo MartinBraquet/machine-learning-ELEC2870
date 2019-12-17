@@ -11,9 +11,16 @@ Greed search inside a K fold
 '''
 
 save_mut_corr = False
-save_KNN = False
+
+compute_lasso = True
 save_lasso = False
+
 compute_KNN = False
+save_KNN = False
+
+compute_MLP = False
+save_MLP = True
+
 
 import numpy as np
 import math
@@ -32,6 +39,11 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsRegressor
 from mlxtend.evaluate import bootstrap_point632_score
+import torch
+import torch.optim as optim
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data.dataset import Dataset
 
 
 def load_data():
@@ -229,7 +241,7 @@ def project_KNN(X_full, X_select, X_PCA, Y, n):
     
 def compute_error_KNN(X, Y, n, method_name):
     
-    neighbors = np.arange(48, n + 1, 1)
+    neighbors = np.arange(1, n + 1, 1)
     if compute_KNN:
         error_knn = np.zeros(n)
         for i in range(0, n):
@@ -245,36 +257,193 @@ def compute_error_KNN(X, Y, n, method_name):
 
     return error_knn
 
+'''
 # Lasso (no feature selection)
-def project_lasso(X, Y, n):
+def project_lasso(X_full, X_select, X_PCA, Y):
     print('Lasso...')
     
-    alpha = np.logspace(-4.0, 4.0, num=n)
+    lambda_lasso = np.logspace(-4.0, 4.0, num=50)
+        
+    error_lasso_full = compute_error_lasso(X_full, Y, lambda_lasso, 'full')
+    error_lasso_select = compute_error_lasso(X_select, Y,  lambda_lasso, 'select')
+    error_lasso_PCA = compute_error_lasso(X_PCA, Y,  lambda_lasso, 'PCA')
     
-    '''
-    error_lasso = np.zeros(n)
-    for i in range(0, n):
-        model = linear_model.Lasso(alpha=alpha[i])
-        Y_pred = model.fit(X, Y).predict(X)
-        RMSE = rmse(Y, Y_pred)
-        error_lasso[i] = math.sqrt(np.mean(bootstrap_point632_score(model, X, Y, n_splits=100)))
-        print('Lasso RMSE ( ', i, ') :', RMSE)
-        print('Lasso bootstrap 632 error ( ', i, ') :', error_lasso[i])
-    '''
-    
-    error_lasso = np.array([106.2375631, 106.16187842, 106.13303232, 106.26647534, 106.05651335, 106.20582387, 106.2186026, 106.08258511, 106.19265945, 106.29189452, 106.19592589, 106.1879064, 106.27420472, 106.024182, 106.21584605, 106.09416867, 106.07558031, 106.02752251, 106.09461169, 105.92143377, 105.82545833, 105.84943091, 105.60666613, 105.17078646, 104.7853639, 104.39823394, 103.74839552, 102.7847098, 102.004051, 100.31135177, 98.92064139, 96.73184041 , 93.78242505 , 90.13574035 , 85.84676636 , 81.98082039 , 81.43493206, 81.2762649, 81.41777602, 81.25663058, 81.36819753, 81.10169265, 81.36737431, 81.33121319, 81.51729483, 81.14111805, 81.43614077, 81.29413601, 81.21898883, 81.1998088])
-
-    plt.plot(alpha, error_lasso, 'b')
-    plt.xlabel('alpha')
-    plt.ylabel('Error Lasso')
-    plt.xscale('log')
+    plt.scatter(lambda_lasso, error_lasso_full, label='Full features')
+    plt.scatter(lambda_lasso, error_lasso_select, label='Selected features')
+    plt.scatter(lambda_lasso, error_lasso_PCA, label='PCA features')
+    plt.xlabel('lambda')
+    plt.ylabel('Error [ug/m^3]')
+    plt.legend()
 
     if save_lasso:
-        tikzplotlib.save("Lasso.tex")
+        tikzplotlib.save("lasso.tex")
     
     plt.show(block=False)
     
+def compute_error_lasso(X, Y, lambda_lasso, method_name):
+    
+    X = X[:3,:]
+    Y = Y[:3]
+    
+    if compute_lasso:
+        error_lasso = np.zeros(lambda_lasso.shape)
+        for lambda_i in lambda_lasso:
+            model = linear_model.Lasso(alpha=lambda_i)
+            Y_pred = model.fit(X, Y).predict(X)
+            RMSE = rmse(Y, Y_pred)
+            print(method_name, 'RMSE ( lambda =', lambda_i, ') :', RMSE)
+            error_lasso[i] = math.sqrt(np.mean(bootstrap_point632_score(model, X, Y, n_splits=100)))
+            print(method_name, 'bootstrap 632 error ( lambda =', lambda_i, ') :', error_lasso[i])   
+        np.save('numpy/error_lasso_{}.npy'.format(method_name), error_lasso)
+    else:
+        error_lasso = np.load('numpy/error_lasso_{}.npy'.format(method_name))
+
     return error_lasso
+'''
+
+# Multi-Layer Perceptron
+def project_MLP(X_full, X_select, X_PCA, Y):
+    print('MLP...')
+    
+    n = 50
+    
+    error_MLP_full = compute_error_MLP(X_full, Y, n, 'full')
+    error_MLP_select = compute_error_MLP(X_select, Y, n, 'select')
+    error_MLP_PCA = compute_error_MLP(X_PCA, Y, n, 'PCA')
+    
+    neurons = np.arange(1, n, 1)
+    
+    plt.scatter(neurons, error_MLP_full, label='Full features')
+    plt.scatter(neurons, error_MLP_select, label='Selected features')
+    plt.scatter(neurons, error_MLP_PCA, label='PCA features')
+    plt.xlabel('Neurons per layer')
+    plt.ylabel('Error [ug/m^3]')
+    plt.legend()
+
+    if save_MLP:
+        tikzplotlib.save("MLP.tex")
+    
+    plt.show(block=False)
+    
+def compute_error_MLP(X, Y, n, method_name):
+    class MLP(nn.Module):
+        def __init__(self, nin, n):
+            super().__init__()
+    
+            self.batch = nn.BatchNorm1d(num_features=n)
+            
+            self.lin1 = nn.Linear(nin, n)
+            self.lin2 = nn.Linear(n, n)
+            self.lin3 = nn.Linear(n, n)
+            self.lin4 = nn.Linear(n, n)
+            self.lin5 = nn.Linear(n, n)
+            self.lin6 = nn.Linear(n, n)
+            self.lin7 = nn.Linear(n, n)
+            self.lin8 = nn.Linear(n, 1)
+            
+    
+        def forward(self, x):
+            
+            x = F.relu(self.batch(self.lin1(x)))
+            x = F.relu(self.batch(self.lin2(x)))
+            x = F.relu(self.batch(self.lin3(x)))
+            x = F.relu(self.batch(self.lin4(x)))
+            x = F.relu(self.batch(self.lin5(x)))
+            x = F.relu(self.batch(self.lin6(x)))
+            x = F.relu(self.batch(self.lin7(x)))
+            x = self.lin8(x)
+            
+            return x
+        
+    class MLP_Dataset(Dataset):
+        def __init__(self, data):
+            self.x = np.transpose(torch.from_numpy(data[0])).float()
+            self.y = torch.from_numpy(data[1]).float()
+             
+        def __getitem__(self, index): 
+            return (self.x[:,index], self.y[index])
+     
+        def __len__(self):
+            return len(self.y)
+        
+    class MLP_model():
+        
+        _estimator_type = "regressor"
+        
+        def __init__(self, nin, n, path):
+            self.model = MLP(nin, n)
+            self.nin = nin
+            self.n = n
+            self.path = 'pytorch/MLP.pt'
+    
+        def fit(self, x, y):
+            model = self.model
+            
+            lr = 0.01
+            batch_size = 128
+            epochs = 50
+        
+            # Object where the data should be moved to:
+            #   either the CPU memory (aka RAM + cache)
+            #   or GPU memory
+            #device = torch.device('cuda') # Note: cuda is the name of the technology inside NVIDIA graphic cards
+            #network = DeepNetwork().to(device) # Transfer Network on graphic card.
+            
+            #torch.save(network.state_dict(), new_model_path)
+           
+            optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=0.0001) # regularization done with weight_decay
+            lMSE = nn.MSELoss()
+            
+            train_set = MLP_Dataset((x, y))
+            train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, drop_last=True)
+            
+            for epoch in range(epochs):
+                i = 0
+                
+                model.train() # Set the network in training mode => weights become trainable aka modifiable
+                for batch in train_loader:
+                    
+                    (x, y) = batch
+                    
+                    #print(x.shape)
+        
+                    y_pred = model(x)  # Infer a batch through the network
+                    
+                    loss = lMSE(y_pred, y)
+                    
+                    #print('Loss: ', math.sqrt(loss.item()))
+                    
+                    optimizer.zero_grad()  # (Re)Set all the gradients to zero
+                    loss.backward()  # Compute the backward pass based on the gradients and activations
+                    optimizer.step()  # Update the weights
+            
+        def predict(self, x):
+            return self.model(torch.from_numpy(x).float()).data.numpy()
+        
+        def get_params(self, deep=True):
+            return {"nin": self.nin, "n": self.n, "path": self.path}
+        
+        def set_params(self, **parameters):
+            self.load_state_dict(torch.load(self.path))
+            return self
+            
+
+
+    if compute_MLP:
+        error_mlp = np.zeros(n)
+        for i in range(0, n):
+            model = MLP_model(X.shape[1], i+1, '')
+            #model.fit(X, Y)
+            #Y_pred = model.predict(X)
+            #RMSE = rmse(Y, Y_pred)
+            #print(method_name, 'RMSE ( neurons =', i, ') :', RMSE)
+            error_mlp[i] = math.sqrt(np.mean(bootstrap_point632_score(model, X, Y, n_splits=10)))
+            print(method_name, 'bootstrap 632 error ( neurons =', i+1, ') :', error_mlp[i])   
+        np.save('numpy/error_mlp_{}.npy'.format(method_name), error_mlp)
+    else:
+        error_mlp = np.load('numpy/error_mlp_{}.npy'.format(method_name))
+
+    return error_mlp
 
 
 # Data building
@@ -324,23 +493,28 @@ Keeps only the relevant features
 ### Features extraction
 
 # PCA
-pca = PCA(n_components=7)
-X_PCA = pca.fit_transform(X_full.values)
-print(pca.explained_variance_ratio_)
+if 'X_PCA' not in locals():
+    pca = PCA(n_components=7)
+    X_PCA = pca.fit_transform(X_full.values)
+    print(pca.explained_variance_ratio_)
 
 
 ### Algorithms test
 '''
 # Linear regression
 error_lin_reg_full = project_linear_regression(X_full.values, Y.values, 'full')
+
+
 error_lin_reg_select = project_linear_regression(X_select, Y.values, 'select')
 error_lin_reg_PCA = project_linear_regression(X_PCA, Y.values, 'PCA')
-'''
+
 # KNN
 n = 50
 project_KNN(X_full.values, X_select, X_PCA, Y.values, n)
+'''
 
 # Lasso
-#error_lasso = project_lasso(X_full, Y.values, n)
-#error_lasso = project_lasso(X_PCA, Y.values, n)
+#project_lasso(X_full.values, X_select, X_PCA, Y.values)
 
+# MLP
+project_MLP(X_full.values, X_select, X_PCA, Y.values)
