@@ -1,6 +1,3 @@
-# machine-learning-ELEC2870
-Python code for the course ELEC2870 - Machine Learning at UCLouvain (June 2019).
-
 # ELEC2870 - Machine Learning
 
 Python code for the course ELEC2870 - Machine Learning at UCLouvain (June 2019).
