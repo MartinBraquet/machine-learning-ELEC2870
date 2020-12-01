@@ -1,0 +1,393 @@
+\documentclass[journal,11pt]{IEEEtran}
+\usepackage[utf8]{inputenc}
+\usepackage{parskip}
+\usepackage[sorting=none]{biblatex}
+\addbibresource{biblio}
+\usepackage{datetime}
+\usepackage{float}
+\usepackage{neuralnetwork}
+\usepackage{tikz}
+\usepackage{siunitx}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.16}
+\usepackage{tabularx} 
+\usepgfplotslibrary{units}
+\usepackage{graphicx}
+\graphicspath{{img}}
+
+\title{LELEC2870 - Project in Machine learning\\\vspace*{10pt} \Large Prediction of air-quality in Beijing}
+\author{Group AM: Martin Braquet (06641500), Amaury Gouverneur (69331500)\\\vspace*{10pt} \normalsize \today{}}
+\date{December 2019}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+This report aims in predicting the concentration of PM2.5 in the air of Beijing. This is done using regression models on a dataset of 7684 records of meteorological and weather data from March $1^{\text{st}}$ 2013 to February $28^{\text{th}}$ 2017. The 15 recorded input features are the following:
+\begin{itemize}
+    \item time [year, month, day, hour],
+    \item SO2, NO2, CO, O3, concentrations [\si{\micro g/m^3}],
+    \item temperature and dew point temperature [\si{C^\degree}],
+    \item pressure [\si{h \pascal}],
+    \item rain precipitation [\si{m m}],
+    \item wind direction [cardinal] and speed [\si{m/s}],
+    \item id of the air-quality. monitoring site.
+\end{itemize}
+The recorded output variable is the corresponding PM2.5 concentration [\si{\micro g/m^3}].
+
+This paper is organized as follows: features processing, selection and extraction will be discussed in sections \ref{Features_processing}, \ref{Features_selection} and \ref{Features_extraction}, the error estimation and the models implementations are presented in section \ref{Error_estimation} and \ref{Models_implementations} before concluding in section \ref{Conclusion}. 
+
+\section{Features processing}
+\label{Features_processing}
+
+The time feature recorded in the year, month, day, hour format is converted in seconds in the variable \texttt{time} with $\texttt{time}=0$ corresponding to the first record. This format is more usable but however does not express the cyclic relations in time, namely the rotation of the earth around the sun and the rotation of the earth around itself (see Figure \ref{fig:earth_revolution}). To do so 4 extra variables are created: \texttt{syear} and \texttt{cyear}, encoding the progress of the earth rotation around the sun, and \texttt{sday} and \texttt{cday}, encoding the progress of the earth rotation around itself. The values are computed as follows: 
+\begin{align*}
+    \texttt{syear} &= \sin\left(2 \pi \dfrac{\texttt{time}}{365\cdot24 \cdot 60 \cdot 60}\right),\\
+    \texttt{cyear} &= \cos\left(2 \pi \dfrac{\texttt{time}}{365\cdot24 \cdot 60 \cdot 60}\right),\\
+    \texttt{sday} &= \sin\left(2 \pi \dfrac{\texttt{time}}{24 \cdot 60 \cdot 60}\right),\\
+    \texttt{sday} &= \cos\left(2 \pi \dfrac{\texttt{time}}{24 \cdot 60 \cdot 60}\right).
+\end{align*}
+
+
+\begin{figure}[H]
+    \centering
+    \input{img/earth_revolution.tex}
+    \caption{Earth revolution around the sun}
+    \label{fig:earth_revolution}
+\end{figure}
+
+The wind direction recorded as cardinals directions are also translated in a format expressing the cyclic relation, \texttt{swd} and \texttt{cwd}, respectively the sine and cosine of the angle of the cardinal direction on a wind rose (see Figure \ref{fig:wind_rose}). 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=0.3]{img/compass.pdf}
+    \caption{Wind rose}
+    \label{fig:wind_rose}
+\end{figure}
+
+The complete set of inputs is thus composed of 17 features.
+The set of inputs is then normalized using a standard normalization method. 
+
+\section{Features selection}
+\label{Features_selection}
+
+Features selection is a technique to drop some less useful inputs. The intrinsic principle aims to maximize the relevance (relation between input and output) and minimize the redundancy (relation between input and input).
+
+It is important to consider the newly created features (cos/sin) in the previous paragraph as a pair of inputs resulting from one unique feature, it is thus not advised to remove one of them  (the sine or cosine) even if they present a high dependency.
+
+\subsection{Correlation}
+
+Figure~\ref{fig:corr} presents the correlation between the inputs and the output (absolute value). Since the correlation only detects linear relations between variables, a zero correlation between an input and the output is not sufficient to drop this input.
+
+\begin{figure}[H]
+    \centering
+    \input{img/correlation.tex}
+    \caption{Correlation matrix between the inputs and the output}
+    \label{fig:corr}
+\end{figure}
+
+\subsection{Mutual information}
+
+Figure~\ref{fig:MI} shows the mutual information between the inputs and the output (absolute value). This method is able to detect any dependency between variables and is thus particularly purposeful to select the right features.
+
+\begin{figure}[H]
+    \centering
+    \input{img/MI.tex}
+    \caption{Mutual Information matrix between the inputs and the output}
+    \label{fig:MI}
+\end{figure}
+
+\subsection{Redundancy and relevance}
+
+Based on the correlation and MI obtained above, one can drop the features in Table~\ref{tab:relevance} because they have few relevance with the output.
+
+\begin{table}[H]
+\setlength\abovecaptionskip{-2\baselineskip}
+\centering
+\begin{tabular}{cc}
+\hline
+Feature &  MI with output  \\ \hline
+\texttt{station} &  0.074  \\
+\texttt{rain}    &  0.079  \\
+\texttt{swd}  &  0.098   \\
+\texttt{cwd}  &  0.1   \\
+\texttt{sday}  &  0.11   \\
+\texttt{cday}  &  0.11   \\
+\texttt{wspm}  &  0.18   \\ \hline
+\end{tabular}
+\vspace*{3mm}
+\caption{Non relevant features}
+\label{tab:relevance}
+\end{table}
+
+Additionally, it is possible to remove the temperature (see Table~\ref{tab:temp}), the pressure (see Table~\ref{tab:pres}) and the time (see Table~\ref{tab:time}) since they are redundant with other inputs.
+
+\begin{table}[H]
+\setlength\abovecaptionskip{-2\baselineskip}
+\centering
+\begin{tabular}{ccc}
+\hline
+Feature &  MI & Correlation \\ \hline
+ \texttt{dewp}  & 0.57  & 0.81  \\
+ \texttt{cyear}  & 0.79  &  0.9 \\ \hline
+\end{tabular}
+\vspace*{3mm}
+\caption{Relations between some features and a redundant feature: Temperature}
+\label{tab:temp}
+\end{table}
+
+\begin{table}[H]
+\setlength\abovecaptionskip{-2\baselineskip}
+\centering
+\begin{tabular}{ccc}
+\hline
+Feature &  MI & Correlation \\ \hline
+ \texttt{dewp}  & 0.54  & 0.74  \\
+ \texttt{cyear}  & 0.79  &  0.82 \\ \hline
+\end{tabular}
+\vspace*{3mm}
+\caption{Relations between some features and a redundant feature: Pressure}
+\label{tab:pres}
+\end{table}
+
+It is worth noting that the dependencies between the time and the other features is non linear, such that a small correlation is computed.
+
+\begin{table}[H]
+\setlength\abovecaptionskip{-2\baselineskip}
+\centering
+\begin{tabular}{ccc}
+\hline
+Feature &  MI & Correlation \\ \hline
+  \texttt{syear}  & 0.99  & 0.1  \\
+ \texttt{cyear}  & 0.99  &  0.17 \\ \hline
+\end{tabular}
+\vspace*{3mm}
+\caption{Relations between some features and a redundant feature: Time}
+\label{tab:time}
+\end{table}
+
+Finally, the set resulting of features selection contains 7 features.
+
+\section{Features extraction}
+\label{Features_extraction}
+
+
+Features extraction consists to transform the input into other features such that this new smaller set of features almost fully describes the content of the inputs.
+
+\subsection{Principal Component Analysis}
+
+The Principal Component Analysis method uses an orthogonal transformation to convert a set of inputs into a set of linearly uncorrelated variables called principal components~\cite{pca}.
+
+Figure~\ref{fig:error_PCA} depicts the error for several numbers of principal components, ranging from 1 to 17 (the full number of features). One can conclude that the most important correlation of the data are combined in 3 principal components, lowering the error to \SI{55.5}{\micro g/m^3}. Adding more components does not lead to better results considering that having only 3 input features brings very efficient computations.
+
+However, it is important to note that this method is linear and thus drops important variables if they are non-linearly dependent. This problem depends upon the linear characteristics of the input features. It is consequent for the data analysed here and hence leads to bad results as discussed thereafter.
+
+\begin{figure}[H]
+    \centering
+    \input{img/error_PCA.tex}
+    \caption{Bootstrap 632 error for different numbers of principal components}
+    \label{fig:error_PCA}
+\end{figure}
+
+\section{Error estimation}
+\label{Error_estimation}
+
+The errors of the following models are estimated thanks to the Bootstrap 632 method gently provided in the MLxtend package \cite{raschkas_2018_mlxtend}. This highly efficient method is characterized by a low bias and a low variance, which makes it particularly purposeful for model validation (compared to the simpler K-fold validation for instance). If not mentioned in the following sections, the number of splits in the Bootstrap method is set to 10 due to the limited available computation power in classical computers. This small number only influences the randomness of the bootstrap error but not the mean value (most important part).
+
+Figure~\ref{fig:error_analysis_bootstrap} shows the error distribution of the linear regression model with the selected features, for 1 and 10 splits. The error is very narrow for 10 splits ($\sigma = \SI{0.255}{\micro g/m^3}$) compared to 1 split ($\sigma = \SI{0.762}{\micro g/m^3}$), computing the error with 10 splits is thus cogent.
+
+\begin{figure}[H]
+    \centering
+    \input{img/error_analysis_bootstrap.tex}
+    \caption{Bootstrap 632 error distribution for different numbers of splits}
+    \label{fig:error_analysis_bootstrap}
+\end{figure}
+
+\section{Models implementations}
+\label{Models_implementations}
+
+
+Seven models have been trained and compared in order to bring the most powerful one for the estimation of the secret dataset. These models are tested with the bootstrap 632 error on the three previously detailed input sets: the full features, the selected features and the PCA features.
+
+Let the dataset be $D = { (x_1 , y_1 ),(x_2 , y_2 ),\ldots,(x_N , y_N ) }$ where  $x_i$ is the input value and $y_i$ is the target value, the goal of a regression model is to estimate the function $y = f(x)$.
+
+\subsection{Linear regression}
+ 
+The linear regression estimates the function $y = f(x)$ by $\hat{f}(x) = w^Tx$. The weight vector $w$ is computed by minimizing the mean squared error on the training data: $$\displaystyle \min_{\mathbf{w}} ||\mathbf{y}_{\text{train}} - \mathbf{w}^T\mathbf{X}_{\text{train}}||_2^2.$$
+
+The error for the three implemented sets is given in Table~\ref{tab:linreg}. One can see that the 7 selected features give almost the same error as for the full input set, which validates the features selection (at least for linear models). However, the PCA method, although very fast, is not convincing because it has few features.
+
+\begin{table}[H]
+\setlength\abovecaptionskip{-2\baselineskip}
+\centering
+\begin{tabular}{cc}
+\hline
+ Features &  Error [\si{\micro g/m^3}] \\ \hline
+ Full  & 44.35 \\
+ Selected  & 44.50 \\
+ PCA  & 54.10 \\ \hline
+\end{tabular}
+\vspace*{3mm}
+\caption{Bootstrap 632 error for the Linear regression model}
+\label{tab:linreg}
+\end{table}
+
+\subsection{Ridge regression}
+
+The ridge regression is similar to the linear regression with a shrinkage penalty on $\mathbf{w}$ ($L_2$ regularization): $$\displaystyle \min_{\mathbf{w}} ||\mathbf{y}_{\text{train}} - \mathbf{w}^T\mathbf{X}_{\text{train}}||_2^2 + \lambda ||\mathbf{w}||_2^2.$$
+The parameter $\lambda$ controls the relative impact of the two terms. Increasing $\lambda$ decreases the variance while increasing the bias. 
+
+As shown in Figure~\ref{fig:RR}, the ridge regression performs better with the \textit{selected features} and \textit{full features} than with the \textit{PCA features}. The performance is almost constant for $\lambda \in [10^{-2},10^2]$ and decreases after when the model starts to suffer from underfitting. The best result is achieved with the \textit{full features} and $\lambda = 0.61$, the error is \SI{44.15}{\micro g/m^3}. 
+
+\begin{figure}[H]
+    \centering
+    \input{img/RR.tex}
+    \caption{Bootstrap 632 error for the Ridge regression model}
+    \label{fig:RR}
+\end{figure}
+
+\subsection{Lasso}
+
+The Lasso regression is similar to the ridge regression with a shrinkage penalty on $\mathbf{w}$ ($L_1$ regularization): $$\displaystyle \min_{\mathbf{w}} ||\mathbf{y}_{\text{train}} - \mathbf{w}^T\mathbf{X}_{\text{train}}||_2^2 + \lambda \sum_{i=1}^N |\mathbf{w_i}|.$$
+
+As shown in Figure~\ref{fig:Lasso}, the lasso regression performances are almost constant until $\lambda = 1$ and start to decrease after because of underfitting. Similarly to the ridge regression the Lasso performs better with the \textit{full} and \textit{selected features}. The best result is achieved with the \textit{full features} and $\lambda = 0.01$, the error is \SI{44.06}{\micro g/m^3}. 
+
+\begin{figure}[H]
+    \centering
+    \input{img/Lasso.tex}
+    \caption{Bootstrap 632 error for the Lasso model}
+    \label{fig:Lasso}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \input{img/Lasso_weights.tex}
+    \caption{Weights of the Lasso model ($\lambda = 0.1$)}
+    \label{fig:Lasso_weights}
+\end{figure}
+
+The weights for $\lambda = 0.1$ are given in Figure~\ref{fig:Lasso_weights}. As found in the features selection, the output is very sensitive to three features, and more or less 7 features completely describe the input space. Some coefficients end up being set to almost zero, making the model easier to interpret.
+
+As both the Ridge regression and Lasso models are better with a small regularization coefficient, they are redundant with the linear regression. This can be explained by the high number of samples used for the training, which are sufficient to prevent overfitting in the linear regression model. These two additional models cannot exploit their advantage of reducing the linear regression overfitting.
+
+\subsection{K-Nearest Neighbour}
+
+Figure~\ref{fig:KNN} presents the error for the KNN model with respect to the number of neighbours $K$ (hyperparameter). For this model, using the full input set should dramatically increase the error since in a high dimensional space, the $K$ nearest neighbours (with the Euclidian norm) are greatly influenced by useless dimensions and thus lead to select wrong neighbours. As expected, the model with features selection outperforms the others, reaching an error of \SI{38.51}{\micro g/m^3} for $K = 4$.
+
+
+\begin{figure}[H]
+    \centering
+    \input{img/KNN.tex}
+    \caption{Bootstrap 632 error for the KNN model}
+    \label{fig:KNN}
+\end{figure}
+
+
+\subsection{Regression tree}
+
+A regression tree partitions the input space in smaller regions recursively until reaching a leaf where a simple model is fitted to. Each node represents a binary questions about one or several feature(s) that will divide the space in two.  For a classic regression tree, the model at each leaf is a constant estimate: the average of the target value of the training data that belongs to this leaf. The binary questions on the nodes are chosen such that the information gain is maximized. Mechanisms such as pruning are necessary to avoid overfitting. 
+
+
+As shown in Figure~\ref{fig:tree}, the performance obtained by the \textit{full} and \textit{selected features} are very close and outperform the ones obtained with the \textit{PCA features}. The performances increase as the maximal depth of the tree increases until reaching a maximum at 7 for the \textit{PCA features}, then it starts to overfit since there are too few features in PCA. The error obtained with the \textit{full} and \textit{selected features} stops decreasing and starts to level out at a depth of around 10. It has to be noted than the trees do not grow further than a depth of 33, explaining the absence of overfitting as the allowed maximal depth continues to increase. The best result is achieved with the \textit{selected features} and a depth of 11, the error is \SI{40.23}{\micro g/m^3}.
+
+\begin{figure}[H]
+    \centering
+    \input{img/tree.tex}
+    \caption{Bootstrap 632 error for the regression tree model}
+    \label{fig:tree}
+\end{figure}
+
+
+\subsection{Bootstrap aggregating trees}
+
+The core idea of an ensemble method is to train weak regressors (or classifiers) and combine them to construct a regressor (or classifier) more powerful than any of the individual ones.
+
+A simple ensemble method is the so-called Bootstrap aggregating or Bagging. Let $D = { (x_1 , y_1 ),(x_2 , y_2 ),\ldots,(x_N , y_N ) }$ be the training data, the principle of the Bagging method is detailed below.
+
+Iteratively, for $b = 1,\ldots,B$, do the following: 
+\begin{itemize}
+    \item sample training examples, with replacement, $N'$ times from $D$ to create $D_b (N' \leq N)$,
+    \item use this bootstrap sample $D_b$ to estimate the regression (or classification) function $f_b$.
+\end{itemize}
+The bagging estimate is $$f_{\text{bag}}(x) = \frac{1}{B} \sum_{b=1}^B f_b(x).$$
+As shown in Figure~\ref{fig:boost_tree}, the \textit{full} and \textit{selected features} are very close and outperform the ones obtained with the \textit{PCA features}. The error decreases as the maximum depth increases until starting to plateau at a depth of 12 with no overfitting. As for the regression tree, this is due to the fact that the trees do not grow deeper than 33. The best result is achieved with the \textit{selected features} and a depth of 19, the error obtained in this case is \SI{31.42}{\micro g/m^3}.
+
+\begin{figure}[H]
+    \centering
+    \input{img/boost_tree.tex}
+    \caption{Bootstrap 632 error for the Bagging trees model}
+    \label{fig:boost_tree}
+\end{figure}
+
+\subsection{Multilayer Perceptron}
+
+A multilayer perceptron takes as inputs the features (17 for the full set and 7 for the selected/PCA set) and propagates these information though a deep neural network to output the final PM2.5 estimation. At each layer, the data are subject to a batch normalisation followed by a ReLU activation function.
+
+Considering the high number of parameters which are subject to optimization (number of hidden layers, neurons per hidden layer, epochs, learning rate, batch size), it might seem interesting to use an optimization algorithm such as a greedy search or a genetic search. However, it appears after simulation that finding this optimum is difficult since the performances are better when the network is very large, in such a way that overfitting is only noticed for big neural networks which are impossible to train in a limited time. The following paragraphs will thus be dedicated to analysing the error for several numbers of neurons per layer, epochs per training period, and hidden layers.
+
+The results presented in Figure~\ref{fig:MLP} depict the error variation for different numbers of neurons (hyperparameter) in each of the 8 hidden layers, ranging from 1 to 50. The learning step is done by feeding the network with the inputs/output pairs, more precisely with 50 epochs and a batch size of 128. It can be seen that the neural network performs the best with the full features as inputs since the weights of the network are precisely adapted to select the information in each features, even the smallest one. On the other hand, deep neural networks do not aim at dropping some features, which is proven by the poor results from features selection and features extraction.
+
+\begin{figure}[H]
+    \centering
+    \input{img/MLP.tex}
+    \caption{Bootstrap 632 error for the MLP model with different numbers of neurons per hidden layer}
+    \label{fig:MLP}
+\end{figure}
+
+One can also analyse the error for different training periods, characterised by a varying number of epochs. Figure~\ref{fig:MLP_epochs} shows this error with a number of epochs ranging from 1 to 80. The error is stabilized after around 50 epochs for all inputs subsets since all the neural networks weights do not vary anymore. The error does not increase for additional epochs, leading to the conclusion that the network configuration is too small to bring overfitting due to long training periods\footnote{In case of possible overfitting, the early stop approach consists to stop the training when the validation error reaches a minimum.}.
+
+\begin{figure}[H]
+    \centering
+    \input{img/MLP_epochs.tex}
+    \caption{Bootstrap 632 error for the MLP model with different numbers of epochs per training period}
+    \label{fig:MLP_epochs}
+\end{figure}
+
+The next step thus consists to increase the number of hidden layers and reduce the error as far as possible. Figure~\ref{fig:MLP_layers} presents this error for the full set, 50 neurons per hidden layer and a number of epochs proportional to the number of layers since larger networks require a longer training period. One can see a minimum error for 18 hidden layers but no overfitting appears as it should be expected for such large networks. Hence, overfitting should arise for larger networks.
+
+\begin{figure}[H]
+    \centering
+    \input{img/MLP_layers.tex}
+    \caption{Bootstrap 632 error for the MLP model with different numbers of hidden layers}
+    \label{fig:MLP_layers}
+\end{figure}
+
+Finally, a huge neural network of 20 hidden layers and 100 neurons has been trained with 300 epochs. It gives a bootstrap 632 error of \SI{34.12}{\micro g/m^3}, suggesting the start of a small overfitting.
+
+It can be noted that the PyTorch library has been used, leading the authors to implement an estimator in order to match the specifications of the bootstrap 632 method \cite{NEURIPS2019_9015}.
+
+\section{Conclusion}
+\label{Conclusion}
+
+To conclude, the lowest error for the analysed models are summarized in Table~\ref{tab:sum} (the errors are expressed in \si{\micro g/m^3}).
+
+\begin{table}[H]
+\setlength\abovecaptionskip{-2\baselineskip}
+\centering
+\begin{tabular}{lccc}
+\hline
+ Model &  Error (Full) &  Error (Selected) &  Error (PCA)\\ \hline
+ Linear regression & 44.35 & 44.50 & 54.10 \\
+ Ridge regression & 44.15 & 44.38 & 53.91  \\ 
+ Lasso & 44.06 & 44.07 & 53.92 \\
+ KNN & 44.12 & 38.51 & 48.58 \\
+ Regression tree & 40.39 & 40.23 & 51.48 \\
+ Boot. agg. trees & 31.60 & 31.42 & 41.78 \\
+ MLP & 31.94 & 37.52 & 46.16 \\ \hline
+\end{tabular}
+\vspace*{3mm}
+\caption{Summarized error for all the models}
+\label{tab:sum}
+\end{table}
+
+\subsection{Final model selection}
+
+The bootstrap aggregating trees method with the features selection is chosen as the final method since it has the lowest error. This model is used to predict the output of the secret set, \texttt{Y2}. The bootstrap 632 method aims to estimate the error on a set belonging to the entire possible space. Hence, the expected RMS error on \texttt{Y2} is the bootstrap 632 error on \texttt{Y1}: \SI{31.42}{\micro g/m^3}.
+
+Finally, combining the previous model predictions by means of ensemble methods or a voting classifier are good perspectives for a future work in the prediction improvements and the quest for the lowest error.
+
+\printbibliography
+
+\end{document}

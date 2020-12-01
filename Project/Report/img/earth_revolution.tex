@@ -1,0 +1,65 @@
+\begin{tikzpicture}[scale=1.8]
+        \def\rS{0.3}                                % Sun radius
+
+        \def\Earthangle{30}                         % angle wrt to horizontal        
+        \def\rE{0.1}                                % Earth radius
+                                                    % Major radius of Earth's elliptical orbit = 1
+        \def\eE{0.25}                               % Excentricity of Earth's elliptical orbit       
+        \pgfmathsetmacro\bE{sqrt(1-\eE*\eE)}        % Minor radius of Earth's elliptical orbit
+
+        \def\Moonangle{-45}                         % angle wrt to horizontal           
+        \pgfmathsetmacro\rM{.7*\rE}                 % Moon radius
+        \pgfmathsetmacro\aM{2.5*\rE}                % Major radius of the Moon's elliptical orbit
+        \def\eM{0.4}                                % Excentricity of Earth's elliptical orbit
+        \pgfmathsetmacro\bM{\aM*sqrt(1-\eM*\eM)}    % Minor radius of the Moon's elliptical orbit 
+        \def\offsetM{30}                            % angle offset between the major axes of Earth's and the Moon's orbits
+
+
+
+        % This function computes the direction in which light hits the Earth.
+        \pgfmathdeclarefunction{f}{1}{%
+            \pgfmathparse{
+                ((-\eE+cos(#1))<0) * ( 180 + atan( \bE*sin(#1)/(-\eE+cos(#1)) ) ) 
+                +
+                ((-\eE+cos(#1))>=0) * ( atan( \bE*sin(#1)/(-\eE+cos(#1)) ) ) 
+            }
+        }
+
+        % This function computes the distance between Earth and the Sun,
+        % which is used to calculate the varying radiation intensity on Earth.
+        \pgfmathdeclarefunction{d}{1}{%
+            \pgfmathparse{ sqrt((-\eE+cos(#1))*(-\eE+cos(#1))+\bE*sin(#1)*\bE*sin(#1)) }
+        }
+
+        % Draw the elliptical path of the Earth.
+        \draw[thin,color=gray] (0,0) ellipse (1 and \bE);
+
+        % Draw the Sun at the right-hand-side focus
+        \shade[
+            top color=yellow!70,
+            bottom color=red!70,
+            shading angle={45},
+            ] ({sqrt(1-\bE*\bE)},0) circle (\rS);
+         %\draw ({sqrt(1-\b*\b)},-\rS) node[below] {Sun};
+
+
+        % Draw the Earth at \Earthangle
+        \pgfmathsetmacro{\radiation}{100*(1-\eE)/(d(\Earthangle)*d(\Earthangle))}
+        \colorlet{Earthlight}{yellow!\radiation!blue}
+        \shade[%
+            top color=Earthlight,%
+            bottom color=blue,%
+            shading angle={90+f(\Earthangle)},%
+        ] ({cos(\Earthangle)},{\bE*sin(\Earthangle)}) circle (\rE);
+        %\draw ({cos(\Earthangle)},{\bE*sin(\Earthangle)-\rE}) node[below] {Earth};  
+
+        % Draw the Moon's (circular) orbit and the Moon at \Moonangle
+        \draw[thin,color=gray,rotate around={{\offsetM}:({cos(\Earthangle)},{\bE*sin(\Earthangle)})}]
+            ({cos(\Earthangle)},{\bE*sin(\Earthangle)}) ellipse ({\aM} and {\bM});
+        %\shade[
+        %    top color=black!70,
+        %    bottom color=black!30,
+        %    shading angle={45},
+        %]   ({cos(\Earthangle)+\aM*cos(\Moonangle)*cos(\offsetM)-\bM*sin(\Moonangle)*sin(\offsetM)},%
+        %    {\bE*sin(\Earthangle)+\aM*cos(\Moonangle)*sin(\offsetM)+\bM*sin(\Moonangle)*cos(\offsetM)}) circle (\rM);   
+    \end{tikzpicture}

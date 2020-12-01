@@ -1,0 +1,47 @@
+% This file was created by tikzplotlib v0.8.7.
+\begin{tikzpicture}
+
+\definecolor{color0}{rgb}{0.12156862745098,0.466666666666667,0.705882352941177}
+
+\begin{axis}[
+legend cell align={left},
+legend style={fill opacity=0.8, draw opacity=1, text opacity=1, draw=white!80.0!black},
+tick align=outside,
+tick pos=left,
+x grid style={white!69.01960784313725!black},
+xlabel={Number of layers},
+xmin=0.0426075268817202, xmax=20.9573924731183,
+xtick style={color=black},
+y grid style={white!69.01960784313725!black},
+ylabel={Error [\si{\micro g/m^3}]},
+ymin=31.3018482631426, ymax=40.2457384004481,
+ytick style={color=black}
+]
+\addplot [only marks, mark size = 1pt, draw=color0, fill=color0, colormap/viridis]
+table{%
+x                      y
+1 39.83
+2 34.0080525997711
+3 34.5349886207359
+4 33.907052887754
+5 32.6486946971239
+6 32.848148954324
+7 32.3750906378598
+8 32.8638097894373
+9 32.7653191574057
+10 32.7239935610875
+11 33.4613292552297
+12 32.1726450762728
+13 32.7460092811903
+14 32.6746261177239
+15 32.3869844118639
+16 33.4143275178886
+17 32.7837407020655
+18 31.7175866635907
+19 32.8903746936802
+20 33.546754434564
+};
+\addlegendentry{Full features}
+\end{axis}
+
+\end{tikzpicture}

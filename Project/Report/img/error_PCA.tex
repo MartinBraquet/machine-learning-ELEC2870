@@ -1,0 +1,41 @@
+% This file was created by tikzplotlib v0.8.7.
+\begin{tikzpicture}[scale=0.9]
+
+\definecolor{color0}{rgb}{0.12156862745098,0.466666666666667,0.705882352941177}
+
+\begin{axis}[
+tick align=outside,
+tick pos=left,
+x grid style={white!69.01960784313725!black},
+xlabel={Number of principal components},
+xmin=0.19260752688172, xmax=17.8073924731183,
+xtick style={color=black},
+y grid style={white!69.01960784313725!black},
+ylabel={Error [\si{\micro g/m^3}]},
+ymin=42.6851630004782, ymax=79.2977079275468,
+ytick style={color=black}
+]
+\addplot [only marks, mark size = 1pt, draw=color0, fill=color0, colormap/viridis]
+table{%
+x                      y
+1 77.6243034002912
+2 62.0313757739748
+3 55.4915777209778
+4 54.7920125917892
+5 54.6147880445389
+6 54.5912487235166
+7 54.046716471317
+8 53.8835233713786
+9 51.336172028788
+10 49.4295859147594
+11 48.9092447801225
+12 48.537668410929
+13 46.4718747248773
+14 46.5325938771456
+15 46.4760167500513
+16 45.0439237982747
+17 44.3585675277337
+};
+\end{axis}
+
+\end{tikzpicture}
